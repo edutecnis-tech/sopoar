@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090d16" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Ecos de Sopocachi - AR Geo-Hunt</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Estilos Principales -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- =========================================================================
+       PANTALLA DE INICIO (SPLASH & ONBOARDING CON PERMISOS UNIFICADOS)
+       ========================================================================= -->
+  <div id="splash-screen" class="splash-screen">
+    <div class="splash-content">
+      <div class="splash-emblem">
+        <div class="emblem-ring"></div>
+        <div class="emblem-icon">🔮</div>
+      </div>
+
+      <h1 class="splash-title">Ecos de Sopocachi</h1>
+      <p class="splash-subtitle">AR GEO-HUNT • LA PAZ, BOLIVIA</p>
+
+      <p class="splash-description">
+        Entidades místicas han despertado a lo largo del corredor patrimonial entre Plaza Abaroa y El Montículo. 
+        Sincroniza tus sentidos y encuéntralas en el mundo real.
+      </p>
+
+      <div class="permission-badges">
+        <span class="perm-badge">📍 Geolocalización GPS</span>
+        <span class="perm-badge">📷 Cámara Trasera AR</span>
+        <span class="perm-badge">🧭 Giroscopio 360°</span>
+        <span class="perm-badge">🔊 Audio Síntesis</span>
+      </div>
+
+      <button id="btn-start-adventure" class="btn-start">
+        ⚡ Iniciar Aventura
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       CONTENEDOR DE LA APP
+       ========================================================================= -->
+  <div class="app-container">
+
+    <!-- -----------------------------------------------------------------------
+         VISTA 1: MODO MAPA & RADAR
+         ----------------------------------------------------------------------- -->
+    <section id="view-map" class="view-section">
+      <!-- HUD Superior del Radar -->
+      <div id="radar-hud" class="radar-floating-hud">
+        <div class="radar-header">
+          <div class="radar-target-title">
+            <span class="radar-label-small">Objetivo en Radar</span>
+            <span id="radar-target-name" class="radar-target-name">Sintonizando señal...</span>
+          </div>
+
+          <div class="radar-compass-widget">
+            <div class="compass-dial"></div>
+            <div id="radar-compass-needle" class="compass-needle"></div>
+          </div>
+        </div>
+
+        <div class="radar-stats-row">
+          <span id="radar-distance" class="radar-distance">-- m</span>
+        </div>
+
+        <p id="radar-clue" class="radar-clue">Esperando primera lectura GPS...</p>
+      </div>
+
+      <!-- Contenedor del Mapa Leaflet -->
+      <div id="map" class="map-viewport"></div>
+
+      <!-- Botón de acción: En Rango AR -->
+      <button id="btn-enter-ar-from-map" class="btn-enter-ar hidden">
+        <span>⚔️</span> ¡PERSONAJE EN RANGO! ENTRAR EN MODO AR
+      </button>
+    </section>
+
+    <!-- -----------------------------------------------------------------------
+         VISTA 2: MODO CÁMARA / VISOR AR
+         ----------------------------------------------------------------------- -->
+    <section id="view-ar" class="view-section hidden">
+      <!-- Video de Cámara Trasera Real -->
+      <video id="camera-video" class="camera-feed" playsinline autoplay muted></video>
+
+      <!-- Canvas Three.js con Entidades 3D y Canal Alfa -->
+      <canvas id="ar-canvas" class="ar-three-canvas"></canvas>
+
+      <!-- Destello Blanco de Obturador -->
+      <div id="camera-flash" class="camera-flash"></div>
+
+      <!-- Interfaz Superpuesta del Visor AR -->
+      <div class="ar-overlay-ui">
+        <!-- HUD Superior -->
+        <div class="ar-top-hud">
+          <div class="ar-target-meta">
+            <h3 id="ar-target-label">Guardián del Umbral</h3>
+            <span id="ar-distance-label" class="ar-distance-tag">14 m</span>
+          </div>
+          <button id="btn-exit-ar" class="btn-exit-ar">🗺️ Mapa</button>
+        </div>
+
+        <!-- Flechas de Guía Espacial Fuera de Pantalla -->
+        <div id="ar-guide-left" class="ar-guide-arrow left">
+          <span>◀</span> GIRA A LA IZQUIERDA
+        </div>
+        <div id="ar-guide-right" class="ar-guide-arrow right">
+          GIRA A LA DERECHA <span>▶</span>
+        </div>
+
+        <!-- Retícula Central Cibernética -->
+        <div id="ar-reticle" class="ar-reticle-container">
+          <div class="ar-crosshair">
+            <span class="crosshair-corner top-left"></span>
+            <span class="crosshair-corner top-right"></span>
+            <span class="crosshair-corner bottom-left"></span>
+            <span class="crosshair-corner bottom-right"></span>
+            <span class="crosshair-dot"></span>
+          </div>
+          <span id="ar-lock-status" class="ar-lock-indicator">ENFOCA AL OBJETIVO</span>
+        </div>
+
+        <!-- Controles Inferiores: Botón de Disparo Fotográfico -->
+        <div class="ar-bottom-controls">
+          <button id="btn-capture-photo" class="btn-shutter" aria-label="Capturar fotografía">
+            <div class="shutter-inner"></div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- -----------------------------------------------------------------------
+         VISTA 3: MODO ÁLBUM / COLECCIÓN
+         ----------------------------------------------------------------------- -->
+    <section id="view-album" class="view-section hidden">
+      <div class="album-header-card">
+        <div class="album-header-title">
+          <h2>Registro de Expedición</h2>
+          <span id="album-counter" class="album-counter">0 / 5 Capturados</span>
+        </div>
+        <div class="album-progress-track">
+          <div id="album-progress-bar" class="album-progress-bar"></div>
+        </div>
+      </div>
+
+      <!-- Cuadrícula de Tarjetas -->
+      <div id="album-grid" class="album-grid"></div>
+    </section>
+
+    <!-- -----------------------------------------------------------------------
+         BARRA DE NAVEGACIÓN INFERIOR (BOTTOM NAV)
+         ----------------------------------------------------------------------- -->
+    <nav id="main-nav" class="bottom-nav">
+      <button id="nav-map" class="nav-item active">
+        <span class="nav-icon">🗺️</span>
+        <span class="nav-text">Mapa</span>
+      </button>
+
+      <button id="nav-ar" class="nav-item">
+        <span class="nav-icon">📷</span>
+        <span class="nav-text">Visor AR</span>
+      </button>
+
+      <button id="nav-album" class="nav-item">
+        <span class="nav-icon">📜</span>
+        <span class="nav-text">Colección</span>
+        <span id="album-badge" class="nav-badge">0</span>
+      </button>
+
+      <button id="btn-mute" class="nav-item btn-mute-toggle" aria-label="Silenciar sonido">
+        🔊
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- =========================================================================
+       MODALES Y NOTIFICACIONES
+       ========================================================================= -->
+
+  <!-- Toast de Alerta Inmediata -->
+  <div id="notification-toast" class="toast-notification hidden">
+    <div id="toast-title" class="toast-title">¡Alerta!</div>
+    <div id="toast-message" class="toast-msg">Mensaje de notificación.</div>
+  </div>
+
+  <!-- Modal de Inspección y Descarga de Foto Capturada -->
+  <div id="photo-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 id="modal-photo-title">Personaje</h3>
+      <p id="modal-photo-location" style="color: var(--accent-cyan); font-size: 13px;">Ubicación</p>
+      <img id="modal-photo-img" class="modal-photo-view" alt="Captura fotográfica" />
+      <p id="modal-photo-date" style="font-size: 12px; color: var(--text-muted);"></p>
+
+      <div class="modal-actions">
+        <a id="modal-photo-download" class="btn-modal-action btn-primary" download="captura.jpg">
+          💾 Descargar Foto
+        </a>
+        <button id="modal-photo-close" class="btn-modal-action btn-secondary">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Captura Exitosa -->
+  <div id="capture-success-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="text-align: center;">
+      <h2 style="color: #34d399; font-size: 22px;">✨ ¡PERSONAJE ATRAPADO! ✨</h2>
+      <h3 id="capture-success-name" style="color: #ffffff; font-size: 18px;">Nombre</h3>
+      <img id="capture-success-img" class="modal-photo-view" alt="Foto capturada" />
+      <p id="capture-success-msg" style="font-size: 14px; color: #cbd5e1; line-height: 1.4;"></p>
+
+      <div class="modal-actions">
+        <button id="btn-continue-hunting" class="btn-modal-action btn-primary">
+          Continuar Búsqueda
+        </button>
+        <button id="btn-view-in-album" class="btn-modal-action btn-secondary">
+          Ver en Colección
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Logro Final: Colección Completa -->
+  <div id="achievement-modal" class="modal-overlay hidden">
+    <canvas id="confetti-canvas" class="confetti-canvas-overlay"></canvas>
+    <div class="modal-content achievement-card">
+      <div class="achievement-medallion">
+        <svg viewBox="0 0 100 100" width="100" height="100">
+          <circle cx="50" cy="50" r="44" fill="#f59e0b" stroke="#fef08a" stroke-width="4"/>
+          <circle cx="50" cy="50" r="36" fill="#b45309" stroke="#fbbf24" stroke-width="2"/>
+          <polygon points="50,22 57,38 74,38 60,49 65,65 50,55 35,65 40,49 26,38 43,38" fill="#fef08a"/>
+        </svg>
+      </div>
+
+      <h2 style="color: #facc15; font-size: 24px; text-transform: uppercase;">
+        ¡Misión Cumplida!
+      </h2>
+      <h3 style="color: #ffffff; font-size: 18px;">
+        Insignia: Explorador de Sopocachi
+      </h3>
+      <p style="font-size: 14px; color: #cbd5e1; line-height: 1.5; margin: 6px 0;">
+        Has recorrido con éxito la senda patrimonial desde Plaza Abaroa hasta las alturas de El Montículo, sintonizando y capturando a los 5 espíritus ancestrales.
+      </p>
+
+      <div class="modal-actions" style="width: 100%;">
+        <button id="btn-close-achievement" class="btn-modal-action btn-primary">
+          Aceptar Honor
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       HERRAMIENTA DE SIMULACIÓN Y TELETRANSPORTE (DEBUG / TESTING FACILITATOR)
+       Permite verificar la app instantáneamente en PC o sin caminar por La Paz.
+       ========================================================================= -->
+  <button id="debug-toggle-btn" class="debug-pill-btn" aria-label="Abrir panel de simulación">
+    📍 Simular GPS
+  </button>
+
+  <aside id="debug-drawer" class="debug-drawer">
+    <div class="debug-header">
+      <h4 style="color: #ffffff; font-size: 16px;">Teletransporte de Prueba</h4>
+      <button id="debug-close-btn" style="background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer;">✕</button>
+    </div>
+    <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">
+      Selecciona cualquier ubicación para situarte a menos de 10 m y activar el modo AR inmediatamente:
+    </p>
+
+    <div class="debug-targets-list">
+      <button class="btn-debug-teleport" data-teleport="0">
+        ✨ 0. Guardián del Umbral (Spawn dinámico inicial)
+      </button>
+      <button class="btn-debug-teleport" data-teleport="1">
+        💎 1. Centinela de Abaroa (Plaza Abaroa)
+      </button>
+      <button class="btn-debug-teleport" data-teleport="2">
+        🌀 2. Espíritu de Sánchez Lima (Sánchez Lima esq. Rosendo G.)
+      </button>
+      <button class="btn-debug-teleport" data-teleport="3">
+        🌌 3. Caminante de la Escalinata (Graderías a El Montículo)
+      </button>
+      <button class="btn-debug-teleport" data-teleport="4">
+        👑 4. Protector del Montículo (Mirador / Capilla)
+      </button>
+    </div>
+
+    <button id="debug-reset-btn" class="btn-debug-reset">
+      🔄 Reiniciar Partida (Borrar IndexedDB)
+    </button>
+  </aside>
+
+  <!-- =========================================================================
+       SCRIPTS EXTERNOS Y MÓDULOS DE APLICACIÓN
+       ========================================================================= -->
+  <!-- Leaflet.js -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Three.js (r128) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Controlador Modular Principal -->
+  <script type="module" src="js/app.js"></script>
+
+</body>
+</html>
