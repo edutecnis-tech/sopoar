@@ -313,10 +313,10 @@ class SopocachiApp {
       attributionControl: false
     }).setView(defaultCenter, 16);
 
-    // Tiles oscuros de alta legibilidad
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    // Tiles oficiales y 100% libres de OpenStreetMap (sin API Key)
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      subdomains: "abcd"
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(this.map);
 
     // Marcador del Jugador con pulso azul
